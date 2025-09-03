@@ -1,12 +1,12 @@
-# Cristal Notes
+# Glass Note
 
-Una aplicación moderna de bloc de notas con estilo cristal (glass morphism) que utiliza IndexedDB para el almacenamiento local y ofrece temas claro y oscuro.
+Una aplicación moderna de bloc de notas con estilo cristal (glass morphism) que utiliza IndexedDB para el almacenamiento local (con fallback a localStorage) y ofrece temas claro y oscuro.
 
 ## Características
 
 - ✨ Diseño moderno con efecto cristal (glass morphism)
 - 📱 Totalmente responsive para dispositivos móviles y de escritorio
-- 💾 Almacenamiento local con IndexedDB (no usa localStorage)
+- 💾 Almacenamiento local con IndexedDB (con fallback a localStorage)
 - 🔍 Búsqueda de notas por título o contenido
 - ⏰ Recordatorios con fecha y hora
 - 📝 Editor de texto intuitivo
@@ -25,7 +25,7 @@ Una aplicación moderna de bloc de notas con estilo cristal (glass morphism) que
 ## Estructura del proyecto
 
 ```
-cristal-notes/
+glassnote/
 ├── index.html
 ├── style.css
 ├── script.js

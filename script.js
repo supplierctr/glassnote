@@ -1,41 +1,122 @@
 // IndexedDB setup
-const DB_NAME = 'CristalNotesDB';
-const DB_VERSION = 2;
+const DB_NAME = 'GlassNoteDB';
+const DB_VERSION = 3; // Increased version to force upgrade
 const NOTES_STORE = 'notes';
 const LINKS_STORE = 'links';
 
 let db;
 let dbInitialized = false;
+let useLocalStorageFallback = false;
 
-// Initialize database
+// Initialize database with fallback to localStorage
 function initDB() {
     return new Promise((resolve, reject) => {
+        // Check if IndexedDB is supported
+        if (!window.indexedDB) {
+            console.warn('IndexedDB is not supported in this browser, using localStorage fallback');
+            useLocalStorageFallback = true;
+            resolve();
+            return;
+        }
+
         const request = indexedDB.open(DB_NAME, DB_VERSION);
 
         request.onerror = (event) => {
             console.error('Error opening database:', event.target.error);
-            reject(event.target.error);
+            console.error('Error code:', event.target.errorCode);
+            
+            // Try to handle common issues
+            if (event.target.error.name === 'UnknownError') {
+                console.error('Possible causes:');
+                console.error('- Browser storage is corrupted');
+                console.error('- Insufficient storage space');
+                console.error('- Database is blocked by another process');
+                console.error('- Permissions issue');
+                
+                // Try deleting the database and recreating it
+                const deleteReq = indexedDB.deleteDatabase(DB_NAME);
+                deleteReq.onsuccess = () => {
+                    console.log('Database deleted successfully, attempting to recreate...');
+                    showToast('Base de datos corrompida. Recargando para intentar reparar...', 'warning');
+                    setTimeout(() => window.location.reload(), 3000);
+                };
+                deleteReq.onerror = () => {
+                    console.error('Failed to delete database:', deleteReq.error);
+                    console.warn('Falling back to localStorage');
+                    useLocalStorageFallback = true;
+                    resolve();
+                };
+            } else {
+                console.warn('Database error, falling back to localStorage:', event.target.error.message);
+                useLocalStorageFallback = true;
+                resolve();
+            }
         };
 
         request.onsuccess = (event) => {
             db = event.target.result;
+            
+            // Check if database is properly connected
+            if (!db) {
+                console.warn('Database connection failed, falling back to localStorage');
+                useLocalStorageFallback = true;
+                resolve();
+                return;
+            }
+            
             dbInitialized = true;
             console.log('Database initialized successfully');
+            
+            // Handle unexpected database closure
+            db.onclose = () => {
+                console.warn('Database connection closed unexpectedly');
+                dbInitialized = false;
+                showToast('Conexión con la base de datos cerrada. Recargando...', 'warning');
+                setTimeout(() => window.location.reload(), 2000);
+            };
+            
+            // Handle database version change
+            db.onversionchange = () => {
+                console.warn('Database version change detected');
+                db.close();
+                dbInitialized = false;
+                showToast('La base de datos fue actualizada. Recargando...', 'info');
+                setTimeout(() => window.location.reload(), 2000);
+            };
+            
             resolve();
         };
 
         request.onupgradeneeded = (event) => {
+            console.log('Database upgrade needed');
             db = event.target.result;
+            
+            // Create notes store
             if (!db.objectStoreNames.contains(NOTES_STORE)) {
+                console.log('Creating notes store');
                 const noteStore = db.createObjectStore(NOTES_STORE, { keyPath: 'id', autoIncrement: true });
                 noteStore.createIndex('title', 'title', { unique: false });
                 noteStore.createIndex('updatedAt', 'updatedAt', { unique: false });
+                noteStore.createIndex('reminder', 'reminder', { unique: false });
             }
+            
+            // Create links store
             if (!db.objectStoreNames.contains(LINKS_STORE)) {
+                console.log('Creating links store');
                 const linkStore = db.createObjectStore(LINKS_STORE, { keyPath: 'id', autoIncrement: true });
                 linkStore.createIndex('url', 'url', { unique: true });
                 linkStore.createIndex('createdAt', 'createdAt', { unique: false });
             }
+            
+            console.log('Database upgrade completed');
+        };
+
+        // Handle blocked state
+        request.onblocked = (event) => {
+            console.error('Database connection blocked:', event);
+            console.warn('Falling back to localStorage');
+            useLocalStorageFallback = true;
+            resolve();
         };
     });
 }
@@ -137,7 +218,55 @@ function saveNoteOrLink() {
     }
 }
 
+// LocalStorage fallback functions
+function saveNoteToLocalStorage(note) {
+    let notes = JSON.parse(localStorage.getItem('glassnote_notes') || '[]');
+    if (note.id) {
+        // Update existing note
+        const index = notes.findIndex(n => n.id === note.id);
+        if (index !== -1) {
+            notes[index] = note;
+        }
+    } else {
+        // Add new note
+        note.id = Date.now() + Math.random(); // Simple ID generation
+        note.createdAt = new Date();
+        notes.push(note);
+    }
+    localStorage.setItem('glassnote_notes', JSON.stringify(notes));
+    return note.id;
+}
+
+function getNotesFromLocalStorage() {
+    return JSON.parse(localStorage.getItem('glassnote_notes') || '[]');
+}
+
+function deleteNoteFromLocalStorage(id) {
+    let notes = JSON.parse(localStorage.getItem('glassnote_notes') || '[]');
+    notes = notes.filter(note => note.id !== id);
+    localStorage.setItem('glassnote_notes', JSON.stringify(notes));
+}
+
 function saveNote(title, content) {
+    if (useLocalStorageFallback) {
+        const note = {
+            title,
+            content,
+            reminder: reminderDateEl.value,
+            updatedAt: new Date()
+        };
+        
+        if (currentNoteId) {
+            note.id = currentNoteId;
+        }
+        
+        const id = saveNoteToLocalStorage(note);
+        if (!currentNoteId) currentNoteId = id;
+        loadNotes();
+        showToast('Nota guardada correctamente', 'success');
+        return;
+    }
+    
     const transaction = db.transaction([NOTES_STORE], 'readwrite');
     const objectStore = transaction.objectStore(NOTES_STORE);
 
@@ -168,7 +297,61 @@ function saveNote(title, content) {
     };
 }
 
+// LocalStorage fallback functions for links
+function saveLinkToLocalStorage(link) {
+    let links = JSON.parse(localStorage.getItem('glassnote_links') || '[]');
+    if (link.id) {
+        // Update existing link
+        const index = links.findIndex(l => l.id === link.id);
+        if (index !== -1) {
+            links[index] = link;
+        }
+    } else {
+        // Check if link already exists
+        const existingLink = links.find(l => l.url === link.url);
+        if (existingLink) {
+            // Update existing link
+            link.id = existingLink.id;
+            link.createdAt = existingLink.createdAt;
+            const index = links.findIndex(l => l.id === link.id);
+            links[index] = link;
+        } else {
+            // Add new link
+            link.id = Date.now() + Math.random(); // Simple ID generation
+            link.createdAt = new Date();
+            links.push(link);
+        }
+    }
+    localStorage.setItem('glassnote_links', JSON.stringify(links));
+    return link.id;
+}
+
+function getLinksFromLocalStorage() {
+    return JSON.parse(localStorage.getItem('glassnote_links') || '[]');
+}
+
+function deleteLinkFromLocalStorage(id) {
+    let links = JSON.parse(localStorage.getItem('glassnote_links') || '[]');
+    links = links.filter(link => link.id !== id);
+    localStorage.setItem('glassnote_links', JSON.stringify(links));
+}
+
 function saveLink(title, url) {
+    if (useLocalStorageFallback) {
+        const formattedUrl = formatURL(url);
+        const link = {
+            title,
+            url: formattedUrl,
+            updatedAt: new Date()
+        };
+        
+        saveLinkToLocalStorage(link);
+        loadLinks();
+        createNewNote();
+        showToast('Enlace guardado correctamente', 'success');
+        return;
+    }
+    
     const transaction = db.transaction([LINKS_STORE], 'readwrite');
     const objectStore = transaction.objectStore(LINKS_STORE);
     const urlIndex = objectStore.index('url');
@@ -207,6 +390,21 @@ function saveLink(title, url) {
 }
 
 function updateLink(id, title, url) {
+    if (useLocalStorageFallback) {
+        const links = getLinksFromLocalStorage();
+        const linkIndex = links.findIndex(l => l.id === id);
+        if (linkIndex !== -1) {
+            links[linkIndex].title = title;
+            links[linkIndex].url = formatURL(url);
+            links[linkIndex].updatedAt = new Date();
+            localStorage.setItem('glassnote_links', JSON.stringify(links));
+            createNewNote();
+            loadLinks();
+            showToast('Enlace actualizado correctamente', 'success');
+        }
+        return;
+    }
+    
     const transaction = db.transaction([LINKS_STORE], 'readwrite');
     const objectStore = transaction.objectStore(LINKS_STORE);
     const request = objectStore.get(id);
@@ -234,9 +432,21 @@ function updateLink(id, title, url) {
 
 function deleteNoteOrLink() {
     if (currentLinkId) {
-        deleteItem(LINKS_STORE, currentLinkId, 'Enlace eliminado', loadLinks);
+        if (useLocalStorageFallback) {
+            // TODO: Implement localStorage fallback for links
+            showToast('Eliminar enlaces no está disponible en modo de respaldo', 'warning');
+        } else {
+            deleteItem(LINKS_STORE, currentLinkId, 'Enlace eliminado', loadLinks);
+        }
     } else if (currentNoteId) {
-        deleteItem(NOTES_STORE, currentNoteId, 'Nota eliminada', loadNotes);
+        if (useLocalStorageFallback) {
+            deleteNoteFromLocalStorage(currentNoteId);
+            createNewNote();
+            loadNotes();
+            showToast('Nota eliminada', 'success');
+        } else {
+            deleteItem(NOTES_STORE, currentNoteId, 'Nota eliminada', loadNotes);
+        }
     } else {
         showToast('No hay nada seleccionado para eliminar', 'warning');
     }
@@ -244,6 +454,18 @@ function deleteNoteOrLink() {
 
 function deleteItem(storeName, id, message, callback) {
     if (!confirm('¿Estás seguro de que quieres eliminar este elemento?')) return;
+
+    if (useLocalStorageFallback) {
+        if (storeName === NOTES_STORE) {
+            deleteNoteFromLocalStorage(id);
+        } else if (storeName === LINKS_STORE) {
+            deleteLinkFromLocalStorage(id);
+        }
+        createNewNote();
+        callback();
+        showToast(message, 'success');
+        return;
+    }
 
     const transaction = db.transaction([storeName], 'readwrite');
     const objectStore = transaction.objectStore(storeName);
@@ -261,6 +483,20 @@ function deleteItem(storeName, id, message, callback) {
 }
 
 function loadNotes(query = '') {
+    if (useLocalStorageFallback) {
+        let notes = getNotesFromLocalStorage();
+        if (query) {
+            const lowerQuery = query.toLowerCase();
+            notes = notes.filter(note =>
+                note.title.toLowerCase().includes(lowerQuery) ||
+                note.content.toLowerCase().includes(lowerQuery)
+            );
+        }
+        notes.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+        displayNotes(notes);
+        return;
+    }
+    
     if (!dbInitialized) return;
     const transaction = db.transaction([NOTES_STORE], 'readonly');
     const objectStore = transaction.objectStore(NOTES_STORE);
@@ -282,6 +518,12 @@ function loadNotes(query = '') {
 }
 
 function loadLinks() {
+    if (useLocalStorageFallback) {
+        const links = getLinksFromLocalStorage().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        displayLinks(links);
+        return;
+    }
+    
     if (!dbInitialized) return;
     const transaction = db.transaction([LINKS_STORE], 'readonly');
     const objectStore = transaction.objectStore(LINKS_STORE);
@@ -349,6 +591,21 @@ function displayLinks(links) {
 }
 
 function loadNote(id) {
+    if (useLocalStorageFallback) {
+        const notes = getNotesFromLocalStorage();
+        const note = notes.find(n => n.id === id);
+        if (note) {
+            currentNoteId = note.id;
+            currentLinkId = null;
+            noteTitleEl.value = note.title;
+            noteContentEl.value = note.content;
+            reminderDateEl.value = note.reminder || '';
+            clearActiveNote();
+            document.querySelector(`[data-note-id="${note.id}"]`)?.classList.add('active');
+        }
+        return;
+    }
+    
     const transaction = db.transaction([NOTES_STORE], 'readonly');
     const objectStore = transaction.objectStore(NOTES_STORE);
     const request = objectStore.get(id);
@@ -368,6 +625,23 @@ function loadNote(id) {
 }
 
 function editLink(id) {
+    if (useLocalStorageFallback) {
+        const links = getLinksFromLocalStorage();
+        const link = links.find(l => l.id === id);
+        if (link) {
+            currentLinkId = link.id;
+            currentNoteId = null;
+            noteTitleEl.value = link.title;
+            noteContentEl.value = link.url;
+            reminderDateEl.value = '';
+            showToast(`Editando enlace: ${link.title}`, 'info');
+            const offcanvas = bootstrap.Offcanvas.getInstance(document.getElementById('linksPanel'));
+            offcanvas?.hide();
+            noteTitleEl.focus();
+        }
+        return;
+    }
+    
     const transaction = db.transaction([LINKS_STORE], 'readonly');
     const objectStore = transaction.objectStore(LINKS_STORE);
     const request = objectStore.get(id);
@@ -402,6 +676,21 @@ function copyNoteContent() {
 }
 
 function checkReminders() {
+    if (useLocalStorageFallback) {
+        const notes = getNotesFromLocalStorage();
+        const now = new Date();
+        notes.forEach(note => {
+            if (note.reminder) {
+                const reminderTime = new Date(note.reminder);
+                if (reminderTime > now && reminderTime <= new Date(now.getTime() + 60 * 1000)) {
+                    showToast(`Recordatorio: ${note.title}`, 'info', 10000);
+                }
+            }
+        });
+        loadNotes(searchInput.value); // Refresh list to show completed reminders
+        return;
+    }
+    
     const transaction = db.transaction([NOTES_STORE], 'readonly');
     const objectStore = transaction.objectStore(NOTES_STORE);
     const request = objectStore.getAll();
@@ -468,6 +757,25 @@ function hideToast(toastEl) {
 }
 
 function exportNotes() {
+    if (useLocalStorageFallback) {
+        const notes = getNotesFromLocalStorage();
+        if (notes.length === 0) return showToast('No hay notas para exportar', 'warning');
+
+        let content = `Glass Note Export - ${new Date().toLocaleString()}\n\n`;
+        notes.forEach(note => {
+            content += `----------\nTitle: ${note.title}\nContent: ${note.content}\nReminder: ${note.reminder || 'None'}\nCreated: ${note.createdAt}\nUpdated: ${note.updatedAt}\n----------\n`;
+        });
+
+        const blob = new Blob([content], { type: 'text/plain' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `GlassNote_Export_${Date.now()}.txt`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        showToast('Notas exportadas', 'success');
+        return;
+    }
+    
     const transaction = db.transaction([NOTES_STORE], 'readonly');
     const objectStore = transaction.objectStore(NOTES_STORE);
     const request = objectStore.getAll();
@@ -476,7 +784,7 @@ function exportNotes() {
         const notes = event.target.result;
         if (notes.length === 0) return showToast('No hay notas para exportar', 'warning');
 
-        let content = `Cristal Notes Export - ${new Date().toLocaleString()}\n\n`;
+        let content = `Glass Note Export - ${new Date().toLocaleString()}\n\n`;
         notes.forEach(note => {
             content += `----------\nTitle: ${note.title}\nContent: ${note.content}\nReminder: ${note.reminder || 'None'}\nCreated: ${note.createdAt}\nUpdated: ${note.updatedAt}\n----------\n`;
         });
@@ -484,7 +792,7 @@ function exportNotes() {
         const blob = new Blob([content], { type: 'text/plain' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `CristalNotes_Export_${Date.now()}.txt`;
+        a.download = `GlassNote_Export_${Date.now()}.txt`;
         a.click();
         URL.revokeObjectURL(a.href);
         showToast('Notas exportadas', 'success');
@@ -492,7 +800,66 @@ function exportNotes() {
 }
 
 function importNotes(event) {
-    showToast('La función de importación aún no está implementada.', 'info');
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const content = e.target.result;
+            // Simple parsing of exported notes
+            const noteSections = content.split('----------\n').filter(s => s.trim() !== '');
+            let importedCount = 0;
+            
+            if (useLocalStorageFallback) {
+                noteSections.forEach(section => {
+                    if (section.startsWith('Title:')) {
+                        const lines = section.split('\n');
+                        const titleLine = lines.find(l => l.startsWith('Title:'));
+                        const contentLine = lines.find(l => l.startsWith('Content:'));
+                        
+                        if (titleLine && contentLine) {
+                            const title = titleLine.replace('Title: ', '').trim();
+                            const content = contentLine.replace('Content: ', '').trim();
+                            
+                            const note = {
+                                title,
+                                content,
+                                updatedAt: new Date()
+                            };
+                            
+                            saveNoteToLocalStorage(note);
+                            importedCount++;
+                        }
+                    }
+                });
+                loadNotes();
+            } else {
+                // For IndexedDB, we'll implement a simpler approach
+                noteSections.forEach(section => {
+                    if (section.startsWith('Title:')) {
+                        const lines = section.split('\n');
+                        const titleLine = lines.find(l => l.startsWith('Title:'));
+                        const contentLine = lines.find(l => l.startsWith('Content:'));
+                        
+                        if (titleLine && contentLine) {
+                            const title = titleLine.replace('Title: ', '').trim();
+                            const content = contentLine.replace('Content: ', '').trim();
+                            
+                            saveNote(title, content);
+                            importedCount++;
+                        }
+                    }
+                });
+            }
+            
+            showToast(`Importadas ${importedCount} notas`, 'success');
+        } catch (error) {
+            console.error('Error importing notes:', error);
+            showToast('Error al importar notas', 'danger');
+        }
+    };
+    reader.readAsText(file);
     importFileInput.value = ''; // Reset input
 }
 
