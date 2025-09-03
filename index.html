@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cristal Notes</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container-fluid my-4">
+        <!-- Header -->
+        <header class="glass-header p-3 mb-4 rounded-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap">
+                <h1 class="me-4"><i class="fas fa-sticky-note me-2"></i>Cristal Notes</h1>
+                <div class="d-flex align-items-center">
+                    <div class="search-container me-3">
+                        <input type="text" id="searchInput" class="form-control" placeholder="Buscar notas...">
+                    </div>
+                    <button id="themeToggle" class="btn btn-outline-secondary rounded-circle me-2" type="button">
+                        <i class="fas fa-sun"></i>
+                    </button>
+                    <button class="btn btn-outline-secondary rounded-circle me-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#linksPanel" aria-controls="linksPanel">
+                        <i class="fas fa-link"></i>
+                    </button>
+                    <button class="btn btn-outline-secondary rounded-circle" type="button" data-bs-toggle="offcanvas" data-bs-target="#importExportPanel" aria-controls="importExportPanel">
+                        <i class="fas fa-exchange-alt"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="row">
+            <!-- Sidebar -->
+            <aside class="col-lg-4 mb-4">
+                <div class="glass-panel p-3 rounded-4 h-100">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h2 class="h4">Notas</h2>
+                        <button id="newNoteBtn" class="btn btn-primary"><i class="fas fa-plus me-2"></i>Nueva</button>
+                    </div>
+                    <div id="notesList" class="notes-list">
+                        <!-- Notes will be populated here -->
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Editor -->
+            <section class="col-lg-8 mb-4">
+                <div class="glass-panel p-3 p-md-4 rounded-4 h-100 d-flex flex-column">
+                    <div class="editor-header mb-3">
+                        <input type="text" id="noteTitle" class="form-control form-control-lg title-input mb-3" placeholder="Título de la nota...">
+                        <div class="reminder-container input-group">
+                            <label class="input-group-text" for="reminderDate"><i class="far fa-bell"></i></label>
+                            <input type="datetime-local" id="reminderDate" class="form-control">
+                        </div>
+                    </div>
+                    <div class="editor-content flex-grow-1 mb-3">
+                        <textarea id="noteContent" class="form-control h-100" placeholder="Escribe tu nota aquí..."></textarea>
+                    </div>
+                    <div class="editor-footer d-flex flex-wrap gap-2">
+                        <button id="saveNoteBtn" class="btn btn-primary"><i class="fas fa-save me-2"></i>Guardar</button>
+                        <button id="copyNoteBtn" class="btn btn-secondary"><i class="fas fa-copy me-2"></i>Copiar</button>
+                        <button id="deleteNoteBtn" class="btn btn-danger"><i class="fas fa-trash me-2"></i>Eliminar</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Links Offcanvas -->
+    <div class="offcanvas offcanvas-end glass-panel" tabindex="-1" id="linksPanel" aria-labelledby="linksPanelLabel">
+        <div class="offcanvas-header">
+            <h5 id="linksPanelLabel" class="offcanvas-title"><i class="fas fa-link me-2"></i>Enlaces</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body">
+            <div id="linksList" class="links-list">
+                <!-- Links will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Import/Export Offcanvas -->
+    <div class="offcanvas offcanvas-end glass-panel" tabindex="-1" id="importExportPanel" aria-labelledby="importExportPanelLabel">
+        <div class="offcanvas-header">
+            <h5 id="importExportPanelLabel" class="offcanvas-title"><i class="fas fa-exchange-alt me-2"></i>Importar / Exportar</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body">
+            <div class="d-grid gap-2">
+                <button id="exportNotesBtn" class="btn btn-secondary"><i class="fas fa-file-export me-2"></i>Exportar Notas</button>
+                <button id="importNotesBtn" class="btn btn-secondary"><i class="fas fa-file-import me-2"></i>Importar Notas</button>
+                <input type="file" id="importFileInput" accept=".txt" style="display: none;">
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification panel for reminders (will be dynamically created) -->
+    <div id="notificationToastContainer" class="toast-container position-fixed bottom-0 end-0 p-3">
+        <!-- Toasts will be appended here -->
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

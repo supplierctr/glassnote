@@ -1,0 +1,264 @@
+/* Global Styles */
+:root {
+    /* Light theme colors */
+    --primary: #1a73e8;
+    --primary-light: #4285f4;
+    --secondary: #0d47a1;
+    --accent: #5e9bff;
+    --light: #ffffff;
+    --dark: #202124;
+    --success: #0f9d58;
+    --danger: #d93025;
+    --warning: #f9ab00;
+    --info: #268bd2;
+    --glass-bg: rgba(255, 255, 255, 0.7);
+    --glass-border: rgba(0, 0, 0, 0.1);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    --bg-gradient-start: #e8f0fe;
+    --bg-gradient-end: #d2e3fc;
+    --text-color: #202124;
+    --transition: all 0.3s ease;
+}
+
+/* Dark theme colors */
+[data-theme="dark"] {
+    --primary: #8ab4f8;
+    --primary-light: #aecbfa;
+    --secondary: #518ff5;
+    --accent: #669df6;
+    --light: #202124;
+    --dark: #e8eaed;
+    --glass-bg: rgba(40, 40, 40, 0.6);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    --bg-gradient-start: #171717;
+    --bg-gradient-end: #202124;
+    --text-color: #e8eaed;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    background: linear-gradient(135deg, var(--bg-gradient-start), var(--bg-gradient-end));
+    color: var(--text-color);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    transition: var(--transition);
+}
+
+/* Glass Morphism Effect */
+.glass-panel, .glass-header {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+    transition: var(--transition);
+    color: var(--text-color);
+}
+
+/* Header */
+.glass-header h1 {
+    font-weight: 700;
+}
+
+#searchInput {
+    background: var(--glass-bg);
+    color: var(--text-color);
+    border: 1px solid var(--glass-border);
+    border-radius: 50px;
+    transition: var(--transition);
+}
+
+#searchInput::placeholder {
+    color: rgba(32, 33, 36, 0.5);
+}
+
+#searchInput:focus {
+    background: var(--light);
+    border-color: var(--primary);
+    color: var(--text-color);
+}
+
+[data-theme="dark"] #searchInput::placeholder {
+    color: rgba(232, 234, 237, 0.5);
+}
+
+/* Sidebar */
+.notes-list {
+    overflow-y: auto;
+    height: calc(100vh - 280px); /* Adjust height as needed */
+}
+
+.note-item {
+    padding: 15px;
+    border-radius: 15px;
+    margin-bottom: 15px;
+    cursor: pointer;
+    transition: var(--transition);
+    border: 1px solid transparent;
+    background: var(--glass-bg);
+    color: var(--text-color);
+}
+
+.note-item:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+}
+
+.note-item.active {
+    background: rgba(255, 255, 255, 0.25);
+    border: 1px solid var(--primary);
+}
+
+.note-item.reminder {
+    border-left: 4px solid var(--warning);
+}
+
+.note-item.completed-reminder {
+    border-left: 4px solid var(--success);
+    opacity: 0.8;
+}
+
+.note-item h3 {
+    font-size: 1.1rem;
+    margin-bottom: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.note-item p {
+    font-size: 0.9rem;
+    opacity: 0.8;
+    margin-bottom: 8px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.note-item .note-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    opacity: 0.7;
+}
+
+/* Editor */
+.editor-content {
+    min-height: 250px; /* Ensure a minimum height */
+}
+
+#noteTitle, #noteContent, #reminderDate {
+    background: var(--glass-bg);
+    color: var(--text-color);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(5px);
+    transition: var(--transition);
+}
+
+#noteTitle::placeholder, #noteContent::placeholder {
+    color: rgba(32, 33, 36, 0.5);
+}
+
+[data-theme="dark"] #noteTitle::placeholder, [data-theme="dark"] #noteContent::placeholder {
+    color: rgba(232, 234, 237, 0.5);
+}
+
+#noteTitle:focus, #noteContent:focus, #reminderDate:focus {
+    background: var(--light);
+    border-color: var(--primary);
+    color: var(--text-color);
+}
+
+/* Offcanvas */
+.offcanvas.glass-panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-left: 1px solid var(--glass-border);
+    color: var(--text-color);
+}
+
+.offcanvas-header .btn-close {
+    filter: invert(var(--text-color));
+}
+
+[data-theme="dark"] .offcanvas-header .btn-close {
+    filter: none;
+}
+
+/* Buttons */
+.btn-primary {
+    background-color: var(--primary);
+    border-color: var(--primary);
+}
+
+.btn-primary:hover {
+    background-color: var(--primary-light);
+    border-color: var(--primary-light);
+}
+
+.btn-secondary {
+    background: var(--glass-bg);
+    color: var(--text-color);
+    border: 1px solid var(--glass-border);
+}
+
+.btn-secondary:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="dark"] .btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.btn-outline-secondary {
+    color: var(--text-color);
+    border-color: var(--glass-border);
+}
+
+.btn-outline-secondary:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .btn-outline-secondary {
+    border-color: var(--glass-border);
+    color: var(--text-color);
+}
+
+[data-theme="dark"] .btn-outline-secondary:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    opacity: 0.8;
+}
+
+.empty-state i {
+    font-size: 3rem;
+    margin-bottom: 20px;
+}
+
+.empty-state p {
+    font-size: 1.2rem;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 991.98px) {
+    .notes-list {
+        height: 300px; /* Adjust for smaller screens */
+    }
+}
+
+@media (max-width: 767.98px) {
+    .header-left h1 {
+        font-size: 1.5rem;
+    }
+}
