@@ -250,6 +250,107 @@ body {
     font-size: 1.2rem;
 }
 
+/* Crystal Toast Notifications */
+.toast-container {
+    z-index: 1051; /* Ensure it's above other elements */
+}
+
+.cristal-toast {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    max-width: 400px;
+    margin-bottom: 15px;
+    transform: translateX(100%);
+    animation: slideInRight 0.3s forwards;
+}
+
+.cristal-toast.show {
+    transform: translateX(0);
+}
+
+.cristal-toast.hide {
+    animation: slideOutRight 0.3s forwards;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOutRight {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+
+.cristal-toast-header {
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 10px 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.cristal-toast-header strong {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.cristal-toast-body {
+    padding: 15px;
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+/* Toast Colors */
+.cristal-toast.success {
+    border-left: 4px solid var(--success);
+}
+
+.cristal-toast.danger {
+    border-left: 4px solid var(--danger);
+}
+
+.cristal-toast.warning {
+    border-left: 4px solid var(--warning);
+}
+
+.cristal-toast.info {
+    border-left: 4px solid var(--info);
+}
+
+/* Dark theme adjustments */
+[data-theme="dark"] .cristal-toast {
+    background: rgba(30, 30, 30, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .cristal-toast-header {
+    background: rgba(50, 50, 50, 0.4);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
 /* Responsive Adjustments */
 @media (max-width: 991.98px) {
     .notes-list {
@@ -260,5 +361,9 @@ body {
 @media (max-width: 767.98px) {
     .header-left h1 {
         font-size: 1.5rem;
+    }
+    
+    .cristal-toast {
+        max-width: 300px;
     }
 }

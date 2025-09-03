@@ -427,21 +427,44 @@ function showToast(message, type = 'info', duration = 3000) {
     const toastContainer = document.getElementById('notificationToastContainer');
     const toastId = 'toast-' + Date.now();
     const toastHTML = `
-        <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true" data-bs-delay="${duration}">
-            <div class="toast-header">
-                <strong class="me-auto">Cristal Notes</strong>
-                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        <div id="${toastId}" class="cristal-toast ${type}" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="cristal-toast-header">
+                <strong>Cristal Notes</strong>
+                <button type="button" class="btn-close" aria-label="Close"></button>
             </div>
-            <div class="toast-body bg-${type} text-white">
+            <div class="cristal-toast-body">
                 ${message}
             </div>
         </div>
     `;
     toastContainer.insertAdjacentHTML('beforeend', toastHTML);
     const toastEl = document.getElementById(toastId);
-    const toast = new bootstrap.Toast(toastEl);
-    toast.show();
-    toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+    
+    // Show the toast with animation
+    setTimeout(() => {
+        toastEl.classList.add('show');
+    }, 10);
+    
+    // Auto hide after duration
+    setTimeout(() => {
+        hideToast(toastEl);
+    }, duration);
+    
+    // Close button event
+    const closeBtn = toastEl.querySelector('.btn-close');
+    closeBtn.addEventListener('click', () => {
+        hideToast(toastEl);
+    });
+}
+
+function hideToast(toastEl) {
+    toastEl.classList.remove('show');
+    toastEl.classList.add('hide');
+    setTimeout(() => {
+        if (toastEl.parentNode) {
+            toastEl.parentNode.removeChild(toastEl);
+        }
+    }, 300);
 }
 
 function exportNotes() {
@@ -453,18 +476,9 @@ function exportNotes() {
         const notes = event.target.result;
         if (notes.length === 0) return showToast('No hay notas para exportar', 'warning');
 
-        let content = `Cristal Notes Export - ${new Date().toLocaleString()}
-
-`;
+        let content = `Cristal Notes Export - ${new Date().toLocaleString()}\n\n`;
         notes.forEach(note => {
-            content += `----------
-Title: ${note.title}
-Content: ${note.content}
-Reminder: ${note.reminder || 'None'}
-Created: ${note.createdAt}
-Updated: ${note.updatedAt}
-----------
-`;
+            content += `----------\nTitle: ${note.title}\nContent: ${note.content}\nReminder: ${note.reminder || 'None'}\nCreated: ${note.createdAt}\nUpdated: ${note.updatedAt}\n----------\n`;
         });
 
         const blob = new Blob([content], { type: 'text/plain' });
@@ -483,11 +497,11 @@ function importNotes(event) {
 }
 
 function isURL(str) {
-    const pattern = new RegExp('^(https?:\/\/)?' + // protocol
-        '((\'d{1,3}\.){3}\'d{1,3}))' + // OR ip (v4) address
-        '(\:\d+)?(\/[-a-z\d%_.~+]*)*' + // port and path
-        '(\?[;&a-z\d%_.~+=-]*)?' + // query string
-        '(\#[-a-z\d_]*)?$', 'i'); // fragment locator
+    const pattern = new RegExp('^(https?:\\/\\/)?' + // protocol
+        '((([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]))' + // OR ip (v4) address
+        '(:[0-9]+)?(\\/[-a-zA-Z0-9%_.~+]*)*' + // port and path
+        '(\\?[;&a-zA-Z0-9%_.~+=-]*)?' + // query string
+        '(\\#[-a-zA-Z0-9_]*)?$', 'i'); // fragment locator
     return !!pattern.test(str);
 }
 
@@ -503,7 +517,7 @@ function formatDate(dateString) {
 }
 
 function escapeHTML(str) {
-    return str.replace(/[&<>"'']/g, function (tag) {
+    return str.replace(/[&<>\"']/g, function (tag) {
         const tagsToReplace = {
             '&': '&amp;',
             '<': '&lt;',
