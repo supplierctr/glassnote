@@ -1,6 +1,6 @@
 # Glass Note
 
-Una aplicación moderna de bloc de notas con estilo cristal (glass morphism) que utiliza IndexedDB para el almacenamiento local (con fallback a localStorage) y ofrece temas claro y oscuro.
+Una aplicación moderna de bloc de notas con estilo cristal (glass morphism) que utiliza IndexedDB para el almacenamiento local (con fallback a localStorage), ofrece temas claro y oscuro, y permite exportar/importar notas con cifrado AES-256 para mayor seguridad.
 
 ## Características
 
@@ -12,6 +12,7 @@ Una aplicación moderna de bloc de notas con estilo cristal (glass morphism) que
 - 📝 Editor de texto intuitivo
 - 🌗 Tema claro/oscuro con toggle en la esquina superior
 - 🎨 Paleta de colores masculina (azul/teal)
+- 🔐 Exportación e importación cifrada con AES-256
 
 ## Cómo usar
 
@@ -68,6 +69,13 @@ Para ejecutar la aplicación localmente:
 1. Haz clic en el ícono de sol/luna en la esquina superior izquierda
 2. El tema se guardará automáticamente en tu navegador
 3. La aplicación recordará tu preferencia en futuras visitas
+
+### Exportación e importación cifrada
+
+1. Al exportar notas, puedes elegir cifrar el archivo con una contraseña
+2. Los archivos cifrados usan encriptación AES-256 de grado militar
+3. Para importar archivos cifrados, se te pedirá la contraseña
+4. Las contraseñas nunca se almacenan y se usan solo para cifrar/descifrar
 
 ## Personalización
 

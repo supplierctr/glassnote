@@ -200,7 +200,7 @@ function createNewNote() {
 }
 
 function saveNoteOrLink() {
-    if (!dbInitialized) return showToast('Base de datos no inicializada', 'danger');
+    if (!dbInitialized && !useLocalStorageFallback) return showToast('Base de datos no inicializada', 'danger');
 
     const title = noteTitleEl.value.trim();
     const content = noteContentEl.value.trim();
@@ -263,6 +263,8 @@ function saveNote(title, content) {
         const id = saveNoteToLocalStorage(note);
         if (!currentNoteId) currentNoteId = id;
         loadNotes();
+        // Clear the editor after saving
+        createNewNote();
         showToast('Nota guardada correctamente', 'success');
         return;
     }
@@ -289,6 +291,8 @@ function saveNote(title, content) {
     request.onsuccess = (event) => {
         if (!currentNoteId) currentNoteId = event.target.result;
         loadNotes();
+        // Clear the editor after saving
+        createNewNote();
         showToast('Nota guardada correctamente', 'success');
     };
     request.onerror = (event) => {
@@ -347,6 +351,7 @@ function saveLink(title, url) {
         
         saveLinkToLocalStorage(link);
         loadLinks();
+        // Clear the editor after saving
         createNewNote();
         showToast('Enlace guardado correctamente', 'success');
         return;
@@ -379,6 +384,7 @@ function saveLink(title, url) {
 
         request.onsuccess = () => {
             loadLinks();
+            // Clear the editor after saving
             createNewNote();
             showToast('Enlace guardado correctamente', 'success');
         };
@@ -398,7 +404,6 @@ function updateLink(id, title, url) {
             links[linkIndex].url = formatURL(url);
             links[linkIndex].updatedAt = new Date();
             localStorage.setItem('glassnote_links', JSON.stringify(links));
-            createNewNote();
             loadLinks();
             showToast('Enlace actualizado correctamente', 'success');
         }
@@ -418,7 +423,6 @@ function updateLink(id, title, url) {
 
             const updateRequest = objectStore.put(link);
             updateRequest.onsuccess = () => {
-                createNewNote();
                 loadLinks();
                 showToast('Enlace actualizado correctamente', 'success');
             };
@@ -492,7 +496,19 @@ function loadNotes(query = '') {
                 note.content.toLowerCase().includes(lowerQuery)
             );
         }
-        notes.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+        // Sort notes: completed reminders first, then by updatedAt
+        notes.sort((a, b) => {
+            const now = new Date();
+            const aIsCompletedReminder = a.reminder && new Date(a.reminder) < now;
+            const bIsCompletedReminder = b.reminder && new Date(b.reminder) < now;
+            
+            // If one is a completed reminder and the other isn't, prioritize the completed reminder
+            if (aIsCompletedReminder && !bIsCompletedReminder) return -1;
+            if (!aIsCompletedReminder && bIsCompletedReminder) return 1;
+            
+            // If both are completed reminders or both aren't, sort by updatedAt (newest first)
+            return new Date(b.updatedAt) - new Date(a.updatedAt);
+        });
         displayNotes(notes);
         return;
     }
@@ -511,7 +527,19 @@ function loadNotes(query = '') {
                 note.content.toLowerCase().includes(lowerQuery)
             );
         }
-        notes.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+        // Sort notes: completed reminders first, then by updatedAt
+        notes.sort((a, b) => {
+            const now = new Date();
+            const aIsCompletedReminder = a.reminder && new Date(a.reminder) < now;
+            const bIsCompletedReminder = b.reminder && new Date(b.reminder) < now;
+            
+            // If one is a completed reminder and the other isn't, prioritize the completed reminder
+            if (aIsCompletedReminder && !bIsCompletedReminder) return -1;
+            if (!aIsCompletedReminder && bIsCompletedReminder) return 1;
+            
+            // If both are completed reminders or both aren't, sort by updatedAt (newest first)
+            return new Date(b.updatedAt) - new Date(a.updatedAt);
+        });
         displayNotes(notes);
     };
     request.onerror = (event) => console.error('Error loading notes:', event.target.error);
@@ -687,7 +715,7 @@ function checkReminders() {
                 }
             }
         });
-        loadNotes(searchInput.value); // Refresh list to show completed reminders
+        loadNotes(searchInput.value); // Refresh list to show completed reminders at top
         return;
     }
     
@@ -706,7 +734,7 @@ function checkReminders() {
                 }
             }
         });
-        loadNotes(searchInput.value); // Refresh list to show completed reminders
+        loadNotes(searchInput.value); // Refresh list to show completed reminders at top
     };
 
     setInterval(checkReminders, 60000); // Check every minute
@@ -718,7 +746,7 @@ function showToast(message, type = 'info', duration = 3000) {
     const toastHTML = `
         <div id="${toastId}" class="cristal-toast ${type}" role="alert" aria-live="assertive" aria-atomic="true">
             <div class="cristal-toast-header">
-                <strong>Cristal Notes</strong>
+                <strong>Glass Note</strong>
                 <button type="button" class="btn-close" aria-label="Close"></button>
             </div>
             <div class="cristal-toast-body">
@@ -735,44 +763,212 @@ function showToast(message, type = 'info', duration = 3000) {
     }, 10);
     
     // Auto hide after duration
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
         hideToast(toastEl);
     }, duration);
     
-    // Close button event
+    // Close button event - using event delegation and ensuring proper binding
     const closeBtn = toastEl.querySelector('.btn-close');
-    closeBtn.addEventListener('click', () => {
-        hideToast(toastEl);
-    });
+    if (closeBtn) {
+        // Try multiple event types to ensure compatibility
+        ['click', 'mousedown', 'touchstart'].forEach(eventType => {
+            closeBtn.addEventListener(eventType, function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                clearTimeout(timeoutId); // Clear the auto-hide timeout
+                hideToast(toastEl);
+            });
+        });
+    }
 }
 
 function hideToast(toastEl) {
+    if (!toastEl || !toastEl.parentNode) return;
+    
+    // If already hidden, remove immediately
+    if (toastEl.classList.contains('hide')) {
+        try {
+            toastEl.parentNode.removeChild(toastEl);
+        } catch (e) {
+            // Element might already be removed
+        }
+        return;
+    }
+    
     toastEl.classList.remove('show');
     toastEl.classList.add('hide');
+    
+    // Remove the toast after the animation completes
     setTimeout(() => {
-        if (toastEl.parentNode) {
-            toastEl.parentNode.removeChild(toastEl);
+        try {
+            if (toastEl.parentNode) {
+                toastEl.parentNode.removeChild(toastEl);
+            }
+        } catch (e) {
+            // Element might already be removed
         }
     }, 300);
 }
 
+// Encryption/Decryption functions using Web Crypto API
+async function encryptData(data, password) {
+    const encoder = new TextEncoder();
+    const dataBuffer = encoder.encode(data);
+    
+    // Derive key from password
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const keyMaterial = await crypto.subtle.importKey(
+        'raw',
+        encoder.encode(password),
+        { name: 'PBKDF2' },
+        false,
+        ['deriveKey']
+    );
+    
+    const key = await crypto.subtle.deriveKey(
+        {
+            name: 'PBKDF2',
+            salt: salt,
+            iterations: 100000,
+            hash: 'SHA-256'
+        },
+        keyMaterial,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt']
+    );
+    
+    // Encrypt data
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encryptedBuffer = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv: iv },
+        key,
+        dataBuffer
+    );
+    
+    // Combine salt, iv and encrypted data
+    const encryptedArray = new Uint8Array(encryptedBuffer);
+    const resultBuffer = new Uint8Array(salt.length + iv.length + encryptedArray.length);
+    resultBuffer.set(salt, 0);
+    resultBuffer.set(iv, salt.length);
+    resultBuffer.set(encryptedArray, salt.length + iv.length);
+    
+    // Convert to base64 for storage
+    return btoa(String.fromCharCode(...resultBuffer));
+}
+
+async function decryptData(encryptedData, password) {
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    
+    // Convert from base64
+    const dataBuffer = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
+    
+    // Extract salt, iv and encrypted data
+    const salt = dataBuffer.slice(0, 16);
+    const iv = dataBuffer.slice(16, 28);
+    const encryptedBuffer = dataBuffer.slice(28);
+    
+    // Derive key from password
+    const keyMaterial = await crypto.subtle.importKey(
+        'raw',
+        encoder.encode(password),
+        { name: 'PBKDF2' },
+        false,
+        ['deriveKey']
+    );
+    
+    const key = await crypto.subtle.deriveKey(
+        {
+            name: 'PBKDF2',
+            salt: salt,
+            iterations: 100000,
+            hash: 'SHA-256'
+        },
+        keyMaterial,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['decrypt']
+    );
+    
+    // Decrypt data
+    const decryptedBuffer = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: iv },
+        key,
+        encryptedBuffer
+    );
+    
+    return decoder.decode(decryptedBuffer);
+}
+
+// Simple password dialog
+function showPasswordDialog(title, callback) {
+    const password = prompt(title);
+    if (password !== null) { // User didn't cancel
+        callback(password);
+    }
+}
+
+// Helper function to pad numbers with leading zeros
+function padZero(num) {
+    return num.toString().padStart(2, '0');
+}
+
+// Helper function to get formatted date for filename
+function getFormattedDate() {
+    const now = new Date();
+    const day = padZero(now.getDate());
+    const month = padZero(now.getMonth() + 1);
+    const year = now.getFullYear();
+    return `${day}-${month}-${year}`;
+}
+
 function exportNotes() {
+    // Ask user if they want encryption
+    const useEncryption = confirm('¿Desea cifrar el archivo exportado con una contraseña?');
+    
+    // Generate formatted date for filename
+    const dateStr = getFormattedDate();
+    
     if (useLocalStorageFallback) {
         const notes = getNotesFromLocalStorage();
         if (notes.length === 0) return showToast('No hay notas para exportar', 'warning');
 
-        let content = `Glass Note Export - ${new Date().toLocaleString()}\n\n`;
-        notes.forEach(note => {
-            content += `----------\nTitle: ${note.title}\nContent: ${note.content}\nReminder: ${note.reminder || 'None'}\nCreated: ${note.createdAt}\nUpdated: ${note.updatedAt}\n----------\n`;
+        let content = JSON.stringify({
+            exportDate: new Date().toISOString(),
+            notes: notes
         });
 
-        const blob = new Blob([content], { type: 'text/plain' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `GlassNote_Export_${Date.now()}.txt`;
-        a.click();
-        URL.revokeObjectURL(a.href);
-        showToast('Notas exportadas', 'success');
+        if (useEncryption) {
+            showPasswordDialog('Ingrese una contraseña para cifrar el archivo:', async (password) => {
+                try {
+                    const encryptedContent = await encryptData(content, password);
+                    const exportData = JSON.stringify({
+                        encrypted: true,
+                        data: encryptedContent
+                    });
+                    
+                    const blob = new Blob([exportData], { type: 'text/plain' });
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = `GlassNote_Export_Cifrado_${dateStr}.txt`;
+                    a.click();
+                    URL.revokeObjectURL(a.href);
+                    showToast('Notas exportadas y cifradas', 'success');
+                } catch (error) {
+                    console.error('Error encrypting data:', error);
+                    showToast('Error al cifrar las notas', 'danger');
+                }
+            });
+        } else {
+            const blob = new Blob([content], { type: 'text/plain' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `GlassNote_Export_${dateStr}.txt`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+            showToast('Notas exportadas', 'success');
+        }
         return;
     }
     
@@ -784,18 +980,41 @@ function exportNotes() {
         const notes = event.target.result;
         if (notes.length === 0) return showToast('No hay notas para exportar', 'warning');
 
-        let content = `Glass Note Export - ${new Date().toLocaleString()}\n\n`;
-        notes.forEach(note => {
-            content += `----------\nTitle: ${note.title}\nContent: ${note.content}\nReminder: ${note.reminder || 'None'}\nCreated: ${note.createdAt}\nUpdated: ${note.updatedAt}\n----------\n`;
+        let content = JSON.stringify({
+            exportDate: new Date().toISOString(),
+            notes: notes
         });
 
-        const blob = new Blob([content], { type: 'text/plain' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `GlassNote_Export_${Date.now()}.txt`;
-        a.click();
-        URL.revokeObjectURL(a.href);
-        showToast('Notas exportadas', 'success');
+        if (useEncryption) {
+            showPasswordDialog('Ingrese una contraseña para cifrar el archivo:', async (password) => {
+                try {
+                    const encryptedContent = await encryptData(content, password);
+                    const exportData = JSON.stringify({
+                        encrypted: true,
+                        data: encryptedContent
+                    });
+                    
+                    const blob = new Blob([exportData], { type: 'text/plain' });
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = `GlassNote_Export_Cifrado_${dateStr}.txt`;
+                    a.click();
+                    URL.revokeObjectURL(a.href);
+                    showToast('Notas exportadas y cifradas', 'success');
+                } catch (error) {
+                    console.error('Error encrypting data:', error);
+                    showToast('Error al cifrar las notas', 'danger');
+                }
+            });
+        } else {
+            const blob = new Blob([content], { type: 'text/plain' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `GlassNote_Export_${dateStr}.txt`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+            showToast('Notas exportadas', 'success');
+        }
     };
 }
 
@@ -804,59 +1023,80 @@ function importNotes(event) {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
         try {
             const content = e.target.result;
-            // Simple parsing of exported notes
-            const noteSections = content.split('----------\n').filter(s => s.trim() !== '');
+            
+            // Try to parse as JSON first (for encrypted files)
+            let data;
+            try {
+                data = JSON.parse(content);
+            } catch (jsonError) {
+                // If JSON parsing fails, it might be an encrypted file stored as plain text
+                // In this case, we'll treat the whole content as the encrypted data
+                data = {
+                    encrypted: true,
+                    data: content.trim()
+                };
+            }
+            
+            let notesToImport = [];
+            
+            // Check if file is encrypted
+            if (data.encrypted) {
+                const password = prompt('Ingrese la contraseña para descifrar el archivo:');
+                if (!password) {
+                    showToast('Se requiere contraseña para importar notas cifradas', 'warning');
+                    return;
+                }
+                
+                try {
+                    const decryptedContent = await decryptData(data.data, password);
+                    const decryptedData = JSON.parse(decryptedContent);
+                    notesToImport = decryptedData.notes;
+                } catch (error) {
+                    console.error('Error decrypting data:', error);
+                    showToast('Error al descifrar el archivo. Contraseña incorrecta o archivo dañado.', 'danger');
+                    return;
+                }
+            } else {
+                notesToImport = data.notes || [];
+            }
+            
+            if (!Array.isArray(notesToImport) || notesToImport.length === 0) {
+                showToast('No se encontraron notas para importar', 'warning');
+                return;
+            }
+            
             let importedCount = 0;
             
+            // Import notes
             if (useLocalStorageFallback) {
-                noteSections.forEach(section => {
-                    if (section.startsWith('Title:')) {
-                        const lines = section.split('\n');
-                        const titleLine = lines.find(l => l.startsWith('Title:'));
-                        const contentLine = lines.find(l => l.startsWith('Content:'));
-                        
-                        if (titleLine && contentLine) {
-                            const title = titleLine.replace('Title: ', '').trim();
-                            const content = contentLine.replace('Content: ', '').trim();
-                            
-                            const note = {
-                                title,
-                                content,
-                                updatedAt: new Date()
-                            };
-                            
-                            saveNoteToLocalStorage(note);
-                            importedCount++;
-                        }
-                    }
+                notesToImport.forEach(note => {
+                    // Ensure note has required fields
+                    note.updatedAt = note.updatedAt ? new Date(note.updatedAt) : new Date();
+                    note.createdAt = note.createdAt ? new Date(note.createdAt) : new Date();
+                    
+                    saveNoteToLocalStorage(note);
+                    importedCount++;
                 });
                 loadNotes();
             } else {
-                // For IndexedDB, we'll implement a simpler approach
-                noteSections.forEach(section => {
-                    if (section.startsWith('Title:')) {
-                        const lines = section.split('\n');
-                        const titleLine = lines.find(l => l.startsWith('Title:'));
-                        const contentLine = lines.find(l => l.startsWith('Content:'));
-                        
-                        if (titleLine && contentLine) {
-                            const title = titleLine.replace('Title: ', '').trim();
-                            const content = contentLine.replace('Content: ', '').trim();
-                            
-                            saveNote(title, content);
-                            importedCount++;
-                        }
-                    }
+                // For IndexedDB
+                notesToImport.forEach(note => {
+                    // Ensure note has required fields
+                    note.updatedAt = note.updatedAt ? new Date(note.updatedAt) : new Date();
+                    note.createdAt = note.createdAt ? new Date(note.createdAt) : new Date();
+                    
+                    saveNote(note.title, note.content);
+                    importedCount++;
                 });
             }
             
             showToast(`Importadas ${importedCount} notas`, 'success');
         } catch (error) {
             console.error('Error importing notes:', error);
-            showToast('Error al importar notas', 'danger');
+            showToast('Error al importar notas. Archivo inválido o dañado.', 'danger');
         }
     };
     reader.readAsText(file);
